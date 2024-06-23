@@ -8,12 +8,11 @@
 #include "Headers/Terrain.h"
 
 
-Terrain::Terrain(float gridX, float gridZ, float size, float maxHeight, std::string heightMap) {
-	this->x = gridX * size;
-	this->z = gridZ * size;
+Terrain::Terrain(float yScale, float yShift, std::string heightMap) {
 	this->heightMap = heightMap;
-	this->size = size;
-	this->maxHeight = maxHeight;
+
+	this->yScale = yScale;
+	this->yShift = yShift;
 
 	Texture textureHeightMap = Texture(heightMap);
 	textureHeightMap.loadImage(true);
@@ -33,6 +32,31 @@ Terrain::Terrain(float gridX, float gridZ, float size, float maxHeight, std::str
 	for(int i = 0; i < W_VERTEX_COUNT; ++i)
 		normals[i] = new glm::vec3[H_VERTEX_COUNT];
 
+	for (int i = 0; i < H_VERTEX_COUNT; i++) {
+		for (int j = 0; j < W_VERTEX_COUNT; j++) {
+			float height = getHeight(j, i, data, imageWidth, this->imageHeight, textureHeightMap.getChannels());
+			glm::vec3 normal = computeNormal(j, i, data, imageWidth,
+					this->imageHeight, textureHeightMap.getChannels());
+			heights[j][i] = height;
+			normals[j][i] = normal;
+		}
+	}
+	
+	textureHeightMap.freeImage();
+}
+
+Terrain::~Terrain() {
+	int VERTEX_COUNT = this->imageWidth;
+	for(int i = 0; i < VERTEX_COUNT; ++i)
+		delete (heights[i]);
+	delete heights;
+}
+
+void Terrain::init(){
+	
+	int W_VERTEX_COUNT = this->imageWidth;
+	int H_VERTEX_COUNT = this->imageHeight;
+
 	int count = W_VERTEX_COUNT * H_VERTEX_COUNT;
 	vertexArray.resize(count * 3);
 	index.resize( 6 * (W_VERTEX_COUNT - 1) * (H_VERTEX_COUNT - 1));
@@ -40,25 +64,21 @@ Terrain::Terrain(float gridX, float gridZ, float size, float maxHeight, std::str
 	int vertexPointer = 0;
 	for (int i = 0; i < H_VERTEX_COUNT; i++) {
 		for (int j = 0; j < W_VERTEX_COUNT; j++) {
-			float height = getHeight(j, i, data, imageWidth, this->imageHeight, textureHeightMap.getChannels());
-			glm::vec3 normal = computeNormal(j, i, data, imageWidth,
-					this->imageHeight, textureHeightMap.getChannels());
-			//glm::vec3 normal = glm::vec3(1.0f);
-			heights[j][i] = height;
-			normals[j][i] = normal;
+			float height = heights[j][i];
+			glm::vec3 normal = normals[j][i];
 			vertexArray[vertexPointer] = Vertex(
-					glm::vec3(
-							this->x
-									+ (float) j / ((float) W_VERTEX_COUNT - 1)
-											* size, height,
-							this->z
-									+ (float) i / ((float) H_VERTEX_COUNT - 1)
-											* size),
-					glm::vec2((float) j / ((float) W_VERTEX_COUNT - 1),
-							(float) i / ((float) H_VERTEX_COUNT - 1)), normal);
+				glm::vec3(-(float)W_VERTEX_COUNT / 2.0f +
+							  (float)j,
+						  height,
+						  -(float)H_VERTEX_COUNT / 2.0f +
+							  (float)i),
+				glm::vec2((float)j / W_VERTEX_COUNT,
+						  (float)i / H_VERTEX_COUNT),
+				normal);
 			vertexPointer++;
 		}
 	}
+
 	int pointer = 0;
 	for(int gz = 0; gz < H_VERTEX_COUNT - 1; gz++){
 		for(int gx = 0; gx < W_VERTEX_COUNT - 1; gx++){
@@ -74,29 +94,18 @@ Terrain::Terrain(float gridX, float gridZ, float size, float maxHeight, std::str
 			index[pointer++] = bottomRight;
 		}
 	}
-
-	textureHeightMap.freeImage();
-}
-
-Terrain::~Terrain() {
-	int VERTEX_COUNT = this->imageHeight;
-	for(int i = 0; i < VERTEX_COUNT; ++i)
-			delete (heights[i]);
+	
+	AbstractModel::init();
 }
 
 float Terrain::getHeight(int x, int z, unsigned char * data, int imageWidth, int imageHeight, int numeroCanales){
 	if(x < 0 || x >= imageWidth || z < 0 || z >=  imageHeight)
 		return 0;
-	float r = data[x * numeroCanales + z * (imageWidth * numeroCanales)];
+
+	//float r = data[x * numeroCanales + z * (imageWidth * numeroCanales)];
 	float g = data[x * numeroCanales + z * (imageWidth * numeroCanales) + 1];
-	float b = data[x * numeroCanales + z * (imageWidth * numeroCanales) + 2];
-	float height = b * g * r;
-	height /= MAX_PIXEL_COLOR;
-	//height -= 0.5;
-	height *= maxHeight;
-	/*height += maxPixelColour / 2.0;
-	height /= maxPixelColour / 2.0f;
-	height *= maxHeight;*/
+	//float b = data[x * numeroCanales + z * (imageWidth * numeroCanales) + 2];
+	float height = (int) g * yScale / 256.0f + yShift;
 
 	return height;
 
@@ -112,10 +121,10 @@ glm::vec3 Terrain::computeNormal(int x, int z, unsigned char * data, int imageWi
 }
 
 float Terrain::getHeightTerrain(float worldX, float worldZ){
-	float terrainX = worldX - x - position.x;
-	float terrainZ = worldZ - z - position.z;
-	float gridSquareSizeX = size / ((float) this->imageWidth - 1);
-	float gridSquareSizeZ = size / ((float) this->imageHeight - 1);
+	float terrainX = worldX + this->imageWidth / 2.0f - position.x;
+	float terrainZ = worldZ + this->imageHeight / 2.0f - position.y;
+	float gridSquareSizeX = 1.0f;
+	float gridSquareSizeZ = 1.0f;
 	int gridX = floor(terrainX / gridSquareSizeX);
 	int gridZ = floor(terrainZ / gridSquareSizeZ);
 	if(gridX < 0 || gridX > this->imageHeight - 1 || gridZ < 0 || gridZ > this->imageHeight - 1)
@@ -139,15 +148,16 @@ float Terrain::getHeightTerrain(float worldX, float worldZ){
 }
 
 glm::vec3 Terrain::getNormalTerrain(float worldX, float worldZ){
-	float terrainX = worldX - x - position.x;
-	float terrainZ = worldZ - z - position.z;
-	float gridSquareSize = size / ((float) this->imageHeight - 1);
-	int gridX = floor(terrainX / gridSquareSize);
-	int gridZ = floor(terrainZ / gridSquareSize);
+	float terrainX = worldX + this->imageWidth / 2.0f - position.x;
+	float terrainZ = worldZ + this->imageHeight / 2.0f - position.y;
+	float gridSquareSizeX = 1.0f;
+	float gridSquareSizeZ = 1.0f;
+	int gridX = floor(terrainX / gridSquareSizeX);
+	int gridZ = floor(terrainZ / gridSquareSizeZ);
 	if(gridX < 0 || gridX > this->imageHeight - 1 || gridZ < 0 || gridZ > this->imageHeight - 1)
 		return glm::vec3(0, 1, 0);
-	float xCoord = fmod(terrainX, gridSquareSize) / gridSquareSize;
-	float zCoord = fmod(terrainZ, gridSquareSize) / gridSquareSize;
+	float xCoord = fmod(terrainX, gridSquareSizeX) / gridSquareSizeX;
+	float zCoord = fmod(terrainZ, gridSquareSizeZ) / gridSquareSizeZ;
 	glm::vec3 answer;
 	if(xCoord <= (1 - zCoord)){
 		answer = barryCentric(glm::vec3(0, heights[gridX][gridZ], 0),
@@ -164,7 +174,6 @@ glm::vec3 Terrain::getNormalTerrain(float worldX, float worldZ){
 				normals[gridX + 1][gridZ + 1], normals[gridX][gridZ + 1]);
 	}
 	return glm::normalize(answer);
-	//return glm::vec3(0, 1, 0);
 }
 
 float Terrain::barryCentric(glm::vec3 p1, glm::vec3 p2, glm::vec3 p3, glm::vec2 pos){

@@ -38,15 +38,21 @@
 
 class DLL_PUBLIC Terrain : public AbstractModel{
 public:
-	Terrain(float gridX, float gridZ, float size, float maxHeight, std::string heightMap);
+	Terrain(float yScale, float yShift, std::string heightMap);
+  void init();
 	float getHeightTerrain(float worldX, float worldZ);
 	glm::vec3 getNormalTerrain(float worldX, float worldZ);
+  float getImageWidth(){
+    return imageWidth;
+  }
+  float getImageHeight(){
+    return imageHeight;
+  }
 	virtual ~Terrain();
+protected:
+  float yScale, yShift;
+
 private:
-	float x, z;
-	float size;
-	float maxHeight;
-	float MAX_PIXEL_COLOR = 256 * 256 * 256;
 	std::string heightMap;
 	float ** heights;
 	glm::vec3 ** normals;

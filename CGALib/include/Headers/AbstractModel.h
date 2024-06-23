@@ -114,6 +114,9 @@ public:
 		Vertex(glm::vec3 m_pos, glm::vec2 m_tex, glm::vec3 m_normal) : m_pos(m_pos), m_tex(m_tex), m_normal(m_normal) {
 		}
 
+		Vertex(glm::vec3 m_pos, glm::vec2 m_tex) : m_pos(m_pos), m_tex(m_tex) {
+		}
+
 	public:
 		glm::vec3 m_pos;
 		glm::vec2 m_tex;
