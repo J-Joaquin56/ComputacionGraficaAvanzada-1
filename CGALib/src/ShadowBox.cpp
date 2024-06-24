@@ -117,3 +117,18 @@ float ShadowBox::getLength(){
 	return (maxs[2] - mins[2]);
 }
 
+glm::mat4 ShadowBox::getLightView(){
+	return glm::lookAt(this->getCenter(), this->getCenter() + glm::normalize(front), glm::vec3(0.0, 1.0, 0.0));
+}
+
+glm::mat4 ShadowBox::getLightProjection() {
+	glm::mat4 lightProjection = glm::mat4(1.0f);
+	glm::mat4 lightSpaceMatrix;
+	lightProjection[0][0] = 2.0f / this->getWidth();
+	lightProjection[1][1] = 2.0f / this->getHeight();
+	lightProjection[2][2] = -2.0f / this->getLength();
+	//lightProjection[3][2] = -(this->shadowDistance + this->nearPlane) / this->getLength();
+	lightProjection[3][3] = 1.0f;
+	return lightProjection;
+}
+

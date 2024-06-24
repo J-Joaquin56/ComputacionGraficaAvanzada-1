@@ -1764,6 +1764,7 @@ void renderAlphaScene(bool render = true){
 	for(std::map<float, std::pair<std::string, glm::vec3> >::reverse_iterator it = blendingSorted.rbegin(); it != blendingSorted.rend(); it++){
 		if(it->second.first.compare("aircraft") == 0){
 			// Render for the aircraft model
+			modelMatrixAircraft[3][1] = terrain.getHeightTerrain(modelMatrixAircraft[3][0], modelMatrixAircraft[3][2]) + 2.0;
 			glm::mat4 modelMatrixAircraftBlend = glm::mat4(modelMatrixAircraft);
 			modelMatrixAircraftBlend[3][1] = terrain.getHeightTerrain(modelMatrixAircraftBlend[3][0], modelMatrixAircraftBlend[3][2]) + 2.0;
 			modelAircraft.render(modelMatrixAircraftBlend);
@@ -1949,18 +1950,9 @@ void applicationLoop() {
 		camera->updateCamera();
 		glm::mat4 view = camera->getViewMatrix();
 
+		// Lightspace shadow box
 		shadowBox->update(screenWidth, screenHeight);
-		glm::vec3 centerBox = shadowBox->getCenter();
-
-		// Projection light shadow mapping
-		glm::mat4 lightProjection = glm::mat4(1.0f), lightView = glm::mat4(1.0f);
-		glm::mat4 lightSpaceMatrix;
-		lightProjection[0][0] = 2.0f / shadowBox->getWidth();
-		lightProjection[1][1] = 2.0f / shadowBox->getHeight();
-		lightProjection[2][2] = -2.0f / shadowBox->getLength();
-		lightProjection[3][3] = 1.0f;
-		lightView = glm::lookAt(centerBox, centerBox + glm::normalize(-lightPos), glm::vec3(0.0, 1.0, 0.0));
-		lightSpaceMatrix = lightProjection * lightView;
+		glm::mat4 lightSpaceMatrix = shadowBox->getLightProjection() * shadowBox->getLightView();
 		shaderDepth.setMatrix4("lightSpaceMatrix", 1, false, glm::value_ptr(lightSpaceMatrix));
 
 		// Settea la matriz de vista y projection al shader con solo color

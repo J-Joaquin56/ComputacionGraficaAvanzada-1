@@ -1751,6 +1751,7 @@ void applicationLoop() {
 		for(std::map<float, std::pair<std::string, glm::vec3> >::reverse_iterator it = blendingSorted.rbegin(); it != blendingSorted.rend(); it++){
 			if(it->second.first.compare("aircraft") == 0){
 				// Render for the aircraft model
+				modelMatrixAircraft[3][1] = terrain.getHeightTerrain(modelMatrixAircraft[3][0], modelMatrixAircraft[3][2]) + 2.0;
 				glm::mat4 modelMatrixAircraftBlend = glm::mat4(modelMatrixAircraft);
 				modelMatrixAircraftBlend[3][1] = terrain.getHeightTerrain(modelMatrixAircraftBlend[3][0], modelMatrixAircraftBlend[3][2]) + 2.0;
 				modelAircraft.render(modelMatrixAircraftBlend);

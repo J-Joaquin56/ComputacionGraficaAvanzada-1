@@ -36,6 +36,8 @@ public:
 	float getWidth();
 	float getHeight();
 	float getLength();
+	glm::mat4 getLightView();
+	glm::mat4 getLightProjection();
 private:
 glm::vec3 front;
 glm::vec3 up;
