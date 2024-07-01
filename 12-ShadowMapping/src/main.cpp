@@ -268,6 +268,10 @@ float GRAVITY = 1.81;
 double tmv = 0;
 double startTimeJump = 0;
 
+// Variables para la camara en tercera persona
+float angleTarget = -glm::half_pi<float>();
+glm::vec3 target;
+
 // Colliders
 std::map<std::string, std::tuple<AbstractModel::OBB, glm::mat4, glm::mat4> > collidersOBB;
 std::map<std::string, std::tuple<AbstractModel::SBB, glm::mat4, glm::mat4> > collidersSBB;
@@ -1245,9 +1249,11 @@ bool processInput(bool continueApplication) {
 
 	// Controles de mayow
 	if (modelSelected == 0 && glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS){
+		angleTarget += 0.02;
 		modelMatrixMayow = glm::rotate(modelMatrixMayow, 0.02f, glm::vec3(0, 1, 0));
 		animationMayowIndex = 0;
 	} else if (modelSelected == 0 && glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS){
+		angleTarget -= 0.02;
 		modelMatrixMayow = glm::rotate(modelMatrixMayow, -0.02f, glm::vec3(0, 1, 0));
 		animationMayowIndex = 0;
 	}
@@ -1413,7 +1419,10 @@ void renderSolidScene(){
 	/*******************************************
 	 * Terrain Cesped
 	 *******************************************/
-	/***glActiveTexture(GL_TEXTURE0);
+	/***GLint oldCullFaceMode;
+	glGetIntegerv(GL_CULL_FACE_MODE, &oldCullFaceMode);
+	glCullFace(GL_BACK);
+	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, textureCespedID);
 	shaderTerrain.setInt("backgroundTexture", 0);
 	glActiveTexture(GL_TEXTURE1);
@@ -1431,7 +1440,8 @@ void renderSolidScene(){
 	shaderTerrain.setVectorFloat2("scaleUV", glm::value_ptr(glm::vec2(80, 80)));
 	terrain.render();
 	shaderTerrain.setVectorFloat2("scaleUV", glm::value_ptr(glm::vec2(0, 0)));
-	glBindTexture(GL_TEXTURE_2D, 0);***/
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glCullFace(oldCullFaceMode);***/
 
 	/*******************************************
 	 * Custom objects obj
@@ -1613,8 +1623,7 @@ void renderSolidScene(){
 	/*******************************************
 	 * Skybox
 	 *******************************************/
-	/***GLint oldCullFaceMode;
-	GLint oldDepthFuncMode;
+	/***GLint oldDepthFuncMode;
 	// deshabilita el modo del recorte de caras ocultas para ver las esfera desde adentro
 	glGetIntegerv(GL_CULL_FACE_MODE, &oldCullFaceMode);
 	glGetIntegerv(GL_DEPTH_FUNC, &oldDepthFuncMode);
@@ -1720,10 +1729,6 @@ void renderScene(){
 void applicationLoop() {
 	bool psi = true;
 
-	glm::vec3 axis;
-	glm::vec3 target;
-	float angleTarget;
-
 	modelMatrixEclipse = glm::translate(modelMatrixEclipse, glm::vec3(27.5, 0, 30.0));
 	modelMatrixEclipse = glm::rotate(modelMatrixEclipse, glm::radians(180.0f), glm::vec3(0, 1, 0));
 	int state = 0;
@@ -1794,23 +1799,11 @@ void applicationLoop() {
 		glm::mat4 projection = glm::perspective(glm::radians(45.0f),
 				(float) screenWidth / (float) screenHeight, 0.01f, 100.0f);
 
-		if(modelSelected == 1){
-			axis = glm::axis(glm::quat_cast(modelMatrixDart));
-			angleTarget = glm::angle(glm::quat_cast(modelMatrixDart));
-			target = modelMatrixDart[3];
-		}
-		else{
-			axis = glm::axis(glm::quat_cast(modelMatrixMayow));
-			angleTarget = glm::angle(glm::quat_cast(modelMatrixMayow));
-			target = modelMatrixMayow[3];
-		}
-
-		if(std::isnan(angleTarget))
-			angleTarget = 0.0;
-		if(axis.y < 0)
-			angleTarget = -angleTarget;
 		if(modelSelected == 1)
-			angleTarget -= glm::radians(90.0f);
+			target = modelMatrixDart[3];
+		else
+			target = modelMatrixMayow[3];
+
 		camera->setCameraTarget(target);
 		camera->setAngleTarget(angleTarget);
 		camera->updateCamera();
@@ -1993,10 +1986,10 @@ void applicationLoop() {
 		glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
 		glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 		glClear(GL_DEPTH_BUFFER_BIT);
-		glCullFace(GL_FRONT);
+		//glCullFace(GL_FRONT);
 		prepareDepthScene();
 		renderScene();
-		glCullFace(GL_BACK);
+		//glCullFace(GL_BACK);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);***/
 
 		/*******************************************

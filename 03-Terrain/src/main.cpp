@@ -33,9 +33,9 @@
 // Include loader Model class
 #include "Headers/Model.h"
 
+/***
 // Include Terrain
-#include "Headers/Terrain.h"
-#include "Headers/TerrainTessellation.h"
+#include "Headers/Terrain.h"***/
 
 #include "Headers/AnimationUtils.h"
 
@@ -51,8 +51,6 @@ Shader shader;
 Shader shaderSkybox;
 //Shader con multiples luces
 Shader shaderMulLighting;
-//Shader con tesselación
-Shader shaderTessellation;
 
 std::shared_ptr<FirstPersonCamera> camera(new FirstPersonCamera());
 
@@ -104,12 +102,11 @@ Model cowboyModelAnimate;
 Model guardianModelAnimate;
 // Cybog
 Model cyborgModelAnimate;
+/***
 // Terrain model instance
-Terrain * terrain;
-// Terrain tessellation
-TerrainTessellation * terrainTessellation;
+Terrain terrain(32.0f, -16.0f, "../Textures/heightmap.png");***/
 
-GLuint textureCespedID, textureWallID, textureWindowID, textureHighwayID, textureLandingPadID, textureHeightMapID;
+GLuint textureCespedID, textureWallID, textureWindowID, textureHighwayID, textureLandingPadID;
 GLuint skyboxTextureID;
 
 GLenum types[6] = {
@@ -201,10 +198,6 @@ double currTime, lastTime;
 const float avance = 0.1;
 const float giroEclipse = 0.5f;
 
-unsigned int terrainVAO, terrainVBO;
-const unsigned int NUM_PATCH_PTS = 4;
-unsigned rez = 20;
-
 // Se definen todos las funciones.
 void reshapeCallback(GLFWwindow *Window, int widthRes, int heightRes);
 void keyCallback(GLFWwindow *window, int key, int scancode, int action,
@@ -272,8 +265,6 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 	shader.initialize("../Shaders/colorShader.vs", "../Shaders/colorShader.fs");
 	shaderSkybox.initialize("../Shaders/skyBox.vs", "../Shaders/skyBox.fs");
 	shaderMulLighting.initialize("../Shaders/iluminacion_textura_animation.vs", "../Shaders/multipleLights.fs");
-	shaderTessellation.initialize("../Shaders/terrain_GPU_fog.vs", "../Shaders/multipleLights.fs",
-		"../Shaders/terrain_GPU_fog.tcs", "../Shaders/terrain_GPU_fog.tes");
 
 	// Inicializacion de los objetos.
 	skyboxSphere.init();
@@ -380,15 +371,10 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 	cyborgModelAnimate.loadModel("../models/cyborg/cyborg.fbx");
 	cyborgModelAnimate.setShader(&shaderMulLighting);
 
+	/***
 	// Terreno
-	terrain = new Terrain(32.0f, -16.0f, "../Textures/heightmap.png");
-	terrain->init();
-	terrain->setShader(&shaderMulLighting);
-
-	// Terain tessellation
-	terrainTessellation = new TerrainTessellation(32.0f, -16.0f, "../Textures/heightmap.png", 20, 4);
-	terrainTessellation->init();
-	terrainTessellation->setShader(&shaderTessellation);
+	terrain.init();
+	terrain.setShader(&shaderMulLighting);***/
 
 	camera->setPosition(glm::vec3(0.0, 3.0, 4.0));
 	
@@ -550,79 +536,6 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 		std::cout << "Fallo la carga de textura" << std::endl;
 	textureLandingPad.freeImage(); // Liberamos memoria
 
-	// Definiendo la textura
-	Texture textureHeightMap("../Textures/heightmap.png");
-	textureHeightMap.loadImage(); // Cargar la textura
-	glGenTextures(1, &textureHeightMapID); // Creando el id de la textura del landingpad
-	glBindTexture(GL_TEXTURE_2D, textureHeightMapID); // Se enlaza la textura
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); // Wrapping en el eje u
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); // Wrapping en el eje v
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); // Filtering de minimización
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); // Filtering de maximimizacion
-	if(textureHeightMap.getData()){
-		// Transferir los datos de la imagen a la tarjeta
-		glTexImage2D(GL_TEXTURE_2D, 0, textureHeightMap.getChannels() == 3 ? GL_RGB : GL_RGBA, textureHeightMap.getWidth(), textureHeightMap.getHeight(), 0,
-		textureHeightMap.getChannels() == 3 ? GL_RGB : GL_RGBA, GL_UNSIGNED_BYTE, textureHeightMap.getData());
-		glGenerateMipmap(GL_TEXTURE_2D);
-	}
-	else 
-		std::cout << "Fallo la carga de textura" << std::endl;
-
-	// set up vertex data (and buffer(s)) and configure vertex attributes
-    // ------------------------------------------------------------------
-    std::vector<float> vertices;
-
-    for(unsigned i = 0; i <= rez-1; i++)
-    {
-        for(unsigned j = 0; j <= rez-1; j++)
-        {
-            vertices.push_back(-textureHeightMap.getWidth()/2.0f + textureHeightMap.getWidth()*i/(float)rez); // v.x
-            vertices.push_back(0.0f); // v.y
-            vertices.push_back(-textureHeightMap.getHeight()/2.0f + textureHeightMap.getHeight()*j/(float)rez); // v.z
-            vertices.push_back(i / (float)rez); // u
-            vertices.push_back(j / (float)rez); // v
-
-            vertices.push_back(-textureHeightMap.getWidth()/2.0f + textureHeightMap.getWidth()*(i+1)/(float)rez); // v.x
-            vertices.push_back(0.0f); // v.y
-            vertices.push_back(-textureHeightMap.getHeight()/2.0f + textureHeightMap.getHeight()*j/(float)rez); // v.z
-            vertices.push_back((i+1) / (float)rez); // u
-            vertices.push_back(j / (float)rez); // v
-
-            vertices.push_back(-textureHeightMap.getWidth()/2.0f + textureHeightMap.getWidth()*i/(float)rez); // v.x
-            vertices.push_back(0.0f); // v.y
-            vertices.push_back(-textureHeightMap.getHeight()/2.0f + textureHeightMap.getHeight()*(j+1)/(float)rez); // v.z
-            vertices.push_back(i / (float)rez); // u
-            vertices.push_back((j+1) / (float)rez); // v
-
-            vertices.push_back(-textureHeightMap.getWidth()/2.0f + textureHeightMap.getWidth()*(i+1)/(float)rez); // v.x
-            vertices.push_back(0.0f); // v.y
-            vertices.push_back(-textureHeightMap.getHeight()/2.0f + textureHeightMap.getHeight()*(j+1)/(float)rez); // v.z
-            vertices.push_back((i+1) / (float)rez); // u
-            vertices.push_back((j+1) / (float)rez); // v
-        }
-    }
-    std::cout << "Loaded " << rez*rez << " patches of 4 control points each" << std::endl;
-    std::cout << "Processing " << rez*rez*4 << " vertices in vertex shader" << std::endl;
-
-    // first, configure the cube's VAO (and terrainVBO)
-    glGenVertexArrays(1, &terrainVAO);
-    glBindVertexArray(terrainVAO);
-
-    glGenBuffers(1, &terrainVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, terrainVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * vertices.size(), &vertices[0], GL_STATIC_DRAW);
-
-    // position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    // texCoord attribute
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(sizeof(float) * 3));
-    glEnableVertexAttribArray(2);
-
-    glPatchParameteri(GL_PATCH_VERTICES, NUM_PATCH_PTS);
-
-	textureHeightMap.freeImage(); // Liberamos memoria
-
 }
 
 void destroy() {
@@ -635,7 +548,6 @@ void destroy() {
 	shader.destroy();
 	shaderMulLighting.destroy();
 	shaderSkybox.destroy();
-	shaderTessellation.destroy();
 
 	// Basic objects Delete
 	skyboxSphere.destroy();
@@ -680,9 +592,9 @@ void destroy() {
 	guardianModelAnimate.destroy();
 	cyborgModelAnimate.destroy();
 
+	/***
 	// Terrains objects Delete
-	delete terrain;
-	delete terrainTessellation;
+	terrain.destroy();***/
 
 	// Textures Delete
 	glBindTexture(GL_TEXTURE_2D, 0);
@@ -691,7 +603,6 @@ void destroy() {
 	glDeleteTextures(1, &textureWindowID);
 	glDeleteTextures(1, &textureHighwayID);
 	glDeleteTextures(1, &textureLandingPadID);
-	glDeleteTextures(1, &textureHeightMapID);
 
 	// Cube Maps Delete
 	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
@@ -988,8 +899,6 @@ void applicationLoop() {
 					glm::value_ptr(projection));
 		shaderMulLighting.setMatrix4("view", 1, false,
 				glm::value_ptr(view));
-		shaderTessellation.setMatrix4("projection", 1, GL_FALSE, glm::value_ptr(projection));
-        shaderTessellation.setMatrix4("view", 1, GL_FALSE, glm::value_ptr(view));
 
 		/*******************************************
 		 * Propiedades Luz direccional
@@ -998,30 +907,23 @@ void applicationLoop() {
 		shaderMulLighting.setVectorFloat3("directionalLight.light.ambient", glm::value_ptr(glm::vec3(0.3, 0.3, 0.3)));
 		shaderMulLighting.setVectorFloat3("directionalLight.light.diffuse", glm::value_ptr(glm::vec3(0.7, 0.7, 0.7)));
 		shaderMulLighting.setVectorFloat3("directionalLight.light.specular", glm::value_ptr(glm::vec3(0.9, 0.9, 0.9)));
-		shaderMulLighting.setVectorFloat3("directionalLight.direction", glm::value_ptr(glm::vec3(0.0, 0.0, -1.0)));
-
-		shaderTessellation.setVectorFloat3("viewPos", glm::value_ptr(camera->getPosition()));
-		shaderTessellation.setVectorFloat3("directionalLight.light.ambient", glm::value_ptr(glm::vec3(0.3, 0.3, 0.3)));
-		shaderTessellation.setVectorFloat3("directionalLight.light.diffuse", glm::value_ptr(glm::vec3(0.7, 0.7, 0.7)));
-		shaderTessellation.setVectorFloat3("directionalLight.light.specular", glm::value_ptr(glm::vec3(0.9, 0.9, 0.9)));
-		shaderTessellation.setVectorFloat3("directionalLight.direction", glm::value_ptr(-glm::vec3(0.0, 0.0, -1.0)));
+		shaderMulLighting.setVectorFloat3("directionalLight.direction", glm::value_ptr(glm::vec3(-1.0, 0.0, 0.0)));
 
 		/*******************************************
 		 * Propiedades SpotLights
 		 *******************************************/
 		shaderMulLighting.setInt("spotLightCount", 0);
-		shaderTessellation.setInt("spotLightCount", 0);
 
 		/*******************************************
 		 * Propiedades PointLights
 		 *******************************************/
 		shaderMulLighting.setInt("pointLightCount", 0);
-		shaderTessellation.setInt("pointLightCount", 0);
+
 
 		/*******************************************
 		 * Cesped
 		 *******************************************/
-		/*glm::mat4 modelCesped = glm::mat4(1.0);
+		glm::mat4 modelCesped = glm::mat4(1.0);
 		modelCesped = glm::translate(modelCesped, glm::vec3(0.0, 0.0, 0.0));
 		modelCesped = glm::scale(modelCesped, glm::vec3(200.0, 0.001, 200.0));
 		// Se activa la textura del agua
@@ -1030,57 +932,55 @@ void applicationLoop() {
 		shaderMulLighting.setVectorFloat2("scaleUV", glm::value_ptr(glm::vec2(200, 200)));
 		boxCesped.render(modelCesped);
 		shaderMulLighting.setVectorFloat2("scaleUV", glm::value_ptr(glm::vec2(0, 0)));
-		glBindTexture(GL_TEXTURE_2D, 0);*/
+		glBindTexture(GL_TEXTURE_2D, 0);
 
 		/*******************************************
 		 * Terrain Cesped
 		 *******************************************/
-		glm::mat4 modelCesped = glm::mat4(1.0);
-		modelCesped = glm::translate(modelCesped, glm::vec3(0.0, 0.0, 0.0));
-		modelCesped = glm::scale(modelCesped, glm::vec3(200.0, 0.001, 200.0));
-		// Se activa la textura del agua
-		glActiveTexture(GL_TEXTURE0);
+		/***glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, textureCespedID);
-		terrain->setPosition(glm::vec3(0, 0, 0));
-		//terrain->render();
-		glBindTexture(GL_TEXTURE_2D, 0);
-
-		/*glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, textureHeightMapID);
-		shaderTessellation.setInt("heightMap", 0);
-		//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        glBindVertexArray(terrainVAO);
-		glDisable(GL_CULL_FACE);
-		shaderTessellation.setMatrix4("model", 1, GL_FALSE, glm::value_ptr(glm::mat4(1.0f)));
-        glDrawArrays(GL_PATCHES, 0, NUM_PATCH_PTS*rez*rez);
-		//glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-		glEnable(GL_CULL_FACE);*/
-
-		//terrainTessellation->enableWireMode();
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, textureCespedID);
-		shaderTessellation.setVectorFloat2("scaleUV", glm::value_ptr(glm::vec2(200, 200)));
-		shaderTessellation.setInt("texture1", 1);
-		terrainTessellation->render();
-		//terrainTessellation->enableFillMode();
+		shaderMulLighting.setVectorFloat2("scaleUV", glm::value_ptr(glm::vec2(80, 80)));
+		terrain.render();
+		shaderMulLighting.setVectorFloat2("scaleUV", glm::value_ptr(glm::vec2(0, 0)));
+		glBindTexture(GL_TEXTURE_2D, 0);***/
 
 		/*******************************************
 		 * Custom objects obj
 		 *******************************************/
 		//Rock render
-		matrixModelRock[3][1] = terrain->getHeightTerrain(matrixModelRock[3][0], matrixModelRock[3][2]);
+		/***matrixModelRock[3][1] = terrain.getHeightTerrain(matrixModelRock[3][0], matrixModelRock[3][2]);***/
 		modelRock.render(matrixModelRock);
 		// Forze to enable the unit texture to 0 always ----------------- IMPORTANT
 		glActiveTexture(GL_TEXTURE0);
 
 		// Render for the aircraft model
-		modelMatrixAircraft[3][1] = terrain->getHeightTerrain(modelMatrixAircraft[3][0], modelMatrixAircraft[3][2]) + 2.0;
+		/***modelMatrixAircraft[3][1] = terrain.getHeightTerrain(modelMatrixAircraft[3][0], modelMatrixAircraft[3][2]) + 2.0;***/
 		modelAircraft.render(modelMatrixAircraft);
 
 		// Render for the eclipse car
-		modelMatrixEclipse[3][1] = terrain->getHeightTerrain(modelMatrixEclipse[3][0], modelMatrixEclipse[3][2]);
+		/***modelMatrixEclipse[3][1] = terrain.getHeightTerrain(modelMatrixEclipse[3][0], modelMatrixEclipse[3][2]);***/
 		glm::mat4 modelMatrixEclipseChasis = glm::mat4(modelMatrixEclipse);
 		modelMatrixEclipseChasis = glm::scale(modelMatrixEclipse, glm::vec3(0.5, 0.5, 0.5));
+
+		/***glm::vec4 frontalLeftWheel = glm::translate(modelMatrixEclipseChasis, glm::vec3(2.8, 1.05813, 4.11483))[3];
+		glm::vec4 frontalRightWheel = glm::translate(modelMatrixEclipseChasis, glm::vec3(-2.8, 1.05813, 4.11483))[3];
+		glm::vec4 rearLeftWheel = glm::translate(modelMatrixEclipseChasis, glm::vec3(2.8, 1.05813, -4.35157))[3];
+		glm::vec4 rearRightWheel = glm::translate(modelMatrixEclipseChasis, glm::vec3(-2.8, 1.05813, -4.35157))[3];
+		frontalLeftWheel.y = terrain.getHeightTerrain(frontalLeftWheel.x, frontalLeftWheel.z);
+		frontalRightWheel.y = terrain.getHeightTerrain(frontalRightWheel.x, frontalRightWheel.z);
+		rearLeftWheel.y = terrain.getHeightTerrain(rearLeftWheel.x, rearLeftWheel.z);
+		rearRightWheel.y = terrain.getHeightTerrain(rearRightWheel.x, rearRightWheel.z);
+
+		glm::vec3 uVec = rearLeftWheel - frontalLeftWheel;
+    	glm::vec3 vVec = rearRightWheel - frontalLeftWheel;
+		glm::vec4 ejeyEclipse = glm::vec4(glm::normalize(glm::vec3(glm::cross(glm::vec3(uVec), glm::vec3(vVec)))), 0);
+		glm::vec4 ejexEclipse = modelMatrixEclipseChasis[0];
+		glm::vec4 ejezEclipse = glm::vec4(glm::normalize(glm::vec3(glm::cross(glm::vec3(ejexEclipse), glm::vec3(ejeyEclipse)))), 0);
+		ejexEclipse = glm::vec4(glm::normalize(glm::vec3(glm::cross(glm::vec3(ejeyEclipse), glm::vec3(ejezEclipse)))), 0);
+		modelMatrixEclipseChasis[0] = ejexEclipse;
+		modelMatrixEclipseChasis[1] = ejeyEclipse;
+		modelMatrixEclipseChasis[2] = ejezEclipse;
+		modelMatrixEclipseChasis = glm::scale(modelMatrixEclipseChasis, glm::vec3(0.5, 0.5, 0.5));***/
 		modelEclipseChasis.render(modelMatrixEclipseChasis);
 
 		glm::mat4 modelMatrixFrontalWheels = glm::mat4(modelMatrixEclipseChasis);
@@ -1114,7 +1014,7 @@ void applicationLoop() {
 		// Lambo car
 		glDisable(GL_CULL_FACE);
 		glm::mat4 modelMatrixLamboChasis = glm::mat4(modelMatrixLambo);
-		modelMatrixLamboChasis[3][1] = terrain->getHeightTerrain(modelMatrixLamboChasis[3][0], modelMatrixLamboChasis[3][2]);
+		/***modelMatrixLamboChasis[3][1] = terrain.getHeightTerrain(modelMatrixLamboChasis[3][0], modelMatrixLamboChasis[3][2]);***/
 		modelMatrixLamboChasis = glm::scale(modelMatrixLamboChasis, glm::vec3(1.3, 1.3, 1.3));
 		modelLambo.render(modelMatrixLamboChasis);
 		glActiveTexture(GL_TEXTURE0);
@@ -1134,7 +1034,7 @@ void applicationLoop() {
 		// Dart lego
 		// Se deshabilita el cull faces IMPORTANTE para la capa
 		glDisable(GL_CULL_FACE);
-		modelMatrixDart[3][1] = terrain->getHeightTerrain(modelMatrixDart[3][0], modelMatrixDart[3][2]);
+		/***modelMatrixDart[3][1] = terrain.getHeightTerrain(modelMatrixDart[3][0], modelMatrixDart[3][2]);***/
 		glm::mat4 modelMatrixDartBody = glm::mat4(modelMatrixDart);
 		modelMatrixDartBody = glm::scale(modelMatrixDartBody, glm::vec3(0.5, 0.5, 0.5));
 		modelDartLegoBody.render(modelMatrixDartBody);
@@ -1217,31 +1117,31 @@ void applicationLoop() {
 		/*****************************************
 		 * Objetos animados por huesos
 		 * **************************************/
-		glm::vec3 ejey = glm::normalize(terrain->getNormalTerrain(modelMatrixMayow[3][0], modelMatrixMayow[3][2]));
+		/***glm::vec3 ejey = glm::normalize(terrain.getNormalTerrain(modelMatrixMayow[3][0], modelMatrixMayow[3][2]));
 		glm::vec3 ejex = glm::vec3(modelMatrixMayow[0]);
 		glm::vec3 ejez = glm::normalize(glm::cross(ejex, ejey));
 		ejex = glm::normalize(glm::cross(ejey, ejez));
 		modelMatrixMayow[0] = glm::vec4(ejex, 0.0);
 		modelMatrixMayow[1] = glm::vec4(ejey, 0.0);
 		modelMatrixMayow[2] = glm::vec4(ejez, 0.0);
-		modelMatrixMayow[3][1] = terrain->getHeightTerrain(modelMatrixMayow[3][0], modelMatrixMayow[3][2]);
+		modelMatrixMayow[3][1] = terrain.getHeightTerrain(modelMatrixMayow[3][0], modelMatrixMayow[3][2]);***/
 		glm::mat4 modelMatrixMayowBody = glm::mat4(modelMatrixMayow);
 		modelMatrixMayowBody = glm::scale(modelMatrixMayowBody, glm::vec3(0.021f));
 		mayowModelAnimate.setAnimationIndex(animationMayowIndex);
 		mayowModelAnimate.render(modelMatrixMayowBody);
 		animationMayowIndex = 1;
 
-		modelMatrixCowboy[3][1] = terrain->getHeightTerrain(modelMatrixCowboy[3][0], modelMatrixCowboy[3][2]);
+		/***modelMatrixCowboy[3][1] = terrain.getHeightTerrain(modelMatrixCowboy[3][0], modelMatrixCowboy[3][2]);***/
 		glm::mat4 modelMatrixCowboyBody = glm::mat4(modelMatrixCowboy);
 		modelMatrixCowboyBody = glm::scale(modelMatrixCowboyBody, glm::vec3(0.0021f));
 		cowboyModelAnimate.render(modelMatrixCowboyBody);
 
-		modelMatrixGuardian[3][1] = terrain->getHeightTerrain(modelMatrixGuardian[3][0], modelMatrixGuardian[3][2]);
+		/***modelMatrixGuardian[3][1] = terrain.getHeightTerrain(modelMatrixGuardian[3][0], modelMatrixGuardian[3][2]);***/
 		glm::mat4 modelMatrixGuardianBody = glm::mat4(modelMatrixGuardian);
 		modelMatrixGuardianBody = glm::scale(modelMatrixGuardianBody, glm::vec3(0.04f));
 		guardianModelAnimate.render(modelMatrixGuardianBody);
 
-		modelMatrixCyborg[3][1] = terrain->getHeightTerrain(modelMatrixCyborg[3][0], modelMatrixCyborg[3][2]);
+		/***modelMatrixCyborg[3][1] = terrain.getHeightTerrain(modelMatrixCyborg[3][0], modelMatrixCyborg[3][2]);***/
 		glm::mat4 modelMatrixCyborgBody = glm::mat4(modelMatrixCyborg);
 		modelMatrixCyborgBody = glm::scale(modelMatrixCyborgBody, glm::vec3(0.009f));
 		cyborgModelAnimate.setAnimationIndex(1);
