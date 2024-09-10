@@ -64,6 +64,7 @@ Model modelEclipseRearWheels;
 Model modelEclipseFrontalWheels;
 Model modelHeliChasis;
 Model modelHeliHeli;
+Model modelHeliHeliBack;
 Model modelLambo;
 Model modelLamboLeftDor;
 Model modelLamboRightDor;
@@ -81,6 +82,10 @@ Model modelDartLegoLeftHand;
 Model modelDartLegoRightHand;
 Model modelDartLegoLeftLeg;
 Model modelDartLegoRightLeg;
+
+// Kakashi y Naruto
+Model modelKakashi;
+Model modelNaruto;
 
 GLuint textureCespedID, textureWallID, textureWindowID, textureHighwayID, textureLandingPadID;
 GLuint skyboxTextureID;
@@ -111,10 +116,14 @@ glm::mat4 modelMatrixHeli = glm::mat4(1.0f);
 glm::mat4 modelMatrixLambo = glm::mat4(1.0);
 glm::mat4 modelMatrixAircraft = glm::mat4(1.0);
 glm::mat4 modelMatrixDart = glm::mat4(1.0f);
+glm::mat4 modelMatrixKakashi = glm::mat4(1.0f);
+glm::mat4 modelMatrixNaruto = glm::mat4(1.0f);
 
 float rotDartHead = 0.0, rotDartLeftArm = 0.0, rotDartLeftHand = 0.0, rotDartRightArm = 0.0, rotDartRightHand = 0.0, rotDartLeftLeg = 0.0, rotDartRightLeg = 0.0;
 int modelSelected = 0;
 bool enableCountSelected = true;
+
+float avance = 0.1f, giroEclipse = 0.5;
 
 // Variables to animations keyframes
 bool saveFrame = false, availableSave = true;
@@ -138,6 +147,12 @@ int numPasosDart = 0;
 
 // Var animate helicopter
 float rotHelHelY = 0.0;
+float rotHelHelBack = 0.0;
+float heliHeight = 10.0f; 			// Altura inicial del helicóptero
+float heliSpeed = 0.05f; 			// Velocidad de acercamiento
+float rotorSpeed = 100.0f; 			// Velocidad de rotación de las hélices
+float rotorBackSpeed = rotorSpeed * 0.8f; // Velocidad de las hélices traseras
+float coordenadaZAterrizaje = -5.0f;// Coordenada Z de la zona de aterrizaje
 
 // Var animate lambo dor
 int stateDoor = 0;
@@ -193,7 +208,8 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 	glfwSetKeyCallback(window, keyCallback);
 	glfwSetCursorPosCallback(window, mouseCallback);
 	glfwSetMouseButtonCallback(window, mouseButtonCallback);
-	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
+	//glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 	// Init glew
 	glewExperimental = GL_TRUE;
@@ -247,11 +263,17 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 	modelEclipseFrontalWheels.setShader(&shaderMulLighting);
 	modelEclipseRearWheels.loadModel("../models/Eclipse/2003eclipse_rear_wheels.obj");
 	modelEclipseRearWheels.setShader(&shaderMulLighting);
+
 	// Helicopter
 	modelHeliChasis.loadModel("../models/Helicopter/Mi_24_chasis.obj");
 	modelHeliChasis.setShader(&shaderMulLighting);
+
 	modelHeliHeli.loadModel("../models/Helicopter/Mi_24_heli.obj");
 	modelHeliHeli.setShader(&shaderMulLighting);
+
+	modelHeliHeliBack.loadModel("../models/Helicopter/Mi_24_heli_back.obj");
+	modelHeliHeliBack.setShader(&shaderMulLighting);
+
 	// Lamborginhi
 	modelLambo.loadModel("../models/Lamborginhi_Aventador_OBJ/Lamborghini_Aventador_chasis.obj");
 	modelLambo.setShader(&shaderMulLighting);
@@ -287,6 +309,13 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 	modelDartLegoLeftLeg.setShader(&shaderMulLighting);
 	modelDartLegoRightLeg.loadModel("../models/LegoDart/LeoDart_right_leg.obj");
 	modelDartLegoRightLeg.setShader(&shaderMulLighting);
+
+	// Kakashi y Naruto
+	modelKakashi.loadModel("../models/NarutoWorld/Kakashi.obj");
+	modelKakashi.setShader(&shaderMulLighting);
+
+	modelNaruto.loadModel("../models/NarutoWorld/Naruto.obj");
+	modelNaruto.setShader(&shaderMulLighting);
 
 	camera->setPosition(glm::vec3(0.0, 3.0, 4.0));
 	
@@ -485,6 +514,7 @@ void destroy() {
 	modelEclipseRearWheels.destroy();
 	modelHeliChasis.destroy();
 	modelHeliHeli.destroy();
+	modelHeliHeliBack.destroy();
 	modelLambo.destroy();
 	modelLamboFrontLeftWheel.destroy();
 	modelLamboFrontRightWheel.destroy();
@@ -493,6 +523,8 @@ void destroy() {
 	modelLamboRearRightWheel.destroy();
 	modelLamboRightDor.destroy();
 	modelRock.destroy();
+	modelKakashi.destroy();
+	modelNaruto.destroy();
 
 	// Textures Delete
 	glBindTexture(GL_TEXTURE_2D, 0);
@@ -525,10 +557,24 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action,
 }
 
 void mouseCallback(GLFWwindow *window, double xpos, double ypos) {
-	offsetX = xpos - lastMousePosX;
+	/* offsetX = xpos - lastMousePosX;
 	offsetY = ypos - lastMousePosY;
 	lastMousePosX = xpos;
-	lastMousePosY = ypos;
+	lastMousePosY = ypos; */
+	static bool firstMouse = true;
+    if (firstMouse) {
+        lastMousePosX = xpos;
+        lastMousePosY = ypos;
+        firstMouse = false;
+    }
+
+    offsetX = xpos - lastMousePosX;
+    offsetY = ypos - lastMousePosY;  // Invertir para que suba con movimiento hacia arriba
+    lastMousePosX = xpos;
+    lastMousePosY = ypos;
+
+    // Aquí llamas a la función de la cámara para que responda al movimiento del mouse
+    camera->mouseMoveCamera(offsetX, offsetY, deltaTime);
 }
 
 void mouseButtonCallback(GLFWwindow *window, int button, int state, int mod) {
@@ -548,23 +594,31 @@ void mouseButtonCallback(GLFWwindow *window, int button, int state, int mod) {
 	}
 }
 
-bool processInput(bool continueApplication) {
+bool processInput(bool continueApplication) {	
 	if (exitApp || glfwWindowShouldClose(window) != 0) {
-		return false;
-	}
+        return false;
+    }
 
-	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-		camera->moveFrontCamera(true, deltaTime);
-	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-		camera->moveFrontCamera(false, deltaTime);
-	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-		camera->moveRightCamera(false, deltaTime);
-	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-		camera->moveRightCamera(true, deltaTime);
-	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
-		camera->mouseMoveCamera(offsetX, offsetY, deltaTime);
-	offsetX = 0;
-	offsetY = 0;
+    // Factor de velocidad para acelerar el movimiento de la cámara
+    float speedMultiplier = 2.0f; // Cambia este valor para aumentar la velocidad
+
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+        camera->moveFrontCamera(true, deltaTime * speedMultiplier);
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        camera->moveFrontCamera(false, deltaTime * speedMultiplier);
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+        camera->moveRightCamera(false, deltaTime * speedMultiplier);
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+        camera->moveRightCamera(true, deltaTime * speedMultiplier);
+
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
+        camera->mouseMoveCamera(offsetX, offsetY, deltaTime);
+
+    offsetX = 0;
+    offsetY = 0;
+
+    glfwPollEvents();
+    return continueApplication;
 
 	// Seleccionar modelo
 	if (enableCountSelected && glfwGetKey(window, GLFW_KEY_TAB) == GLFW_PRESS){
@@ -656,12 +710,26 @@ bool processInput(bool continueApplication) {
 	else if (modelSelected == 2 && glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
 		modelMatrixDart = glm::translate(modelMatrixDart, glm::vec3(0.02, 0.0, 0.0));
 
+	
+
 	glfwPollEvents();
 	return continueApplication;
 }
 
 void applicationLoop() {
 	bool psi = true;
+
+	// Definir los estados del helicóptero
+    enum HelicopterState {
+        INICIAL,
+        ACERCAMIENTO,
+        ATERRIZAJE,
+        DETENER_ROTORES
+    };
+
+    HelicopterState heliState = INICIAL; // Estado inicial
+
+    modelMatrixHeli = glm::translate(modelMatrixHeli, glm::vec3(5.0, heliHeight, -5.0)); // Posición inicial del helicóptero
 
 	modelMatrixEclipse = glm::translate(modelMatrixEclipse, glm::vec3(27.5, 0, 30.0));
 	modelMatrixEclipse = glm::rotate(modelMatrixEclipse, glm::radians(180.0f), glm::vec3(0, 1, 0));
@@ -675,13 +743,17 @@ void applicationLoop() {
 
 	matrixModelRock = glm::translate(matrixModelRock, glm::vec3(-3.0, 0.0, 2.0));
 
-	modelMatrixHeli = glm::translate(modelMatrixHeli, glm::vec3(5.0, 10.0, -5.0));
+	//modelMatrixHeli = glm::translate(modelMatrixHeli, glm::vec3(5.0, 10.0, -5.0));
 
 	modelMatrixAircraft = glm::translate(modelMatrixAircraft, glm::vec3(10.0, 2.0, -17.5));
 
 	modelMatrixLambo = glm::translate(modelMatrixLambo, glm::vec3(23.0, 0.0, 0.0));
 
 	modelMatrixDart = glm::translate(modelMatrixDart, glm::vec3(3.0, 0.0, 20.0));
+
+	modelMatrixKakashi = glm::translate(modelMatrixKakashi, glm::vec3(3.0, 0.0, 20.0));
+
+	modelMatrixNaruto = glm::translate(modelMatrixNaruto, glm::vec3(3.0, 0.0, 20.0));
 
 	// Variables to interpolation key frames
 	fileName = "../animaciones/animation_dart_joints.txt";
@@ -692,13 +764,13 @@ void applicationLoop() {
 
 	while (psi) {
 		currTime = TimeManager::Instance().GetTime();
-		if(currTime - lastTime < 0.016666667){
+		if(currTime - lastTime < 0.016666667){  //60 fps
 			glfwPollEvents();
 			continue;
 		}
 		lastTime = currTime;
 		TimeManager::Instance().CalculateFrameRate(true);
-		deltaTime = TimeManager::Instance().DeltaTime;
+		deltaTime = TimeManager::Instance().DeltaTime;// * 2;
 		psi = processInput(true);
 
 		// Variables donde se guardan las matrices de cada articulacion por 1 frame
@@ -706,8 +778,7 @@ void applicationLoop() {
 		std::vector<glm::mat4> matrixDart;
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		glm::mat4 projection = glm::perspective(glm::radians(45.0f),
-				(float) screenWidth / (float) screenHeight, 0.01f, 100.0f);
+		glm::mat4 projection = glm::perspective(glm::radians(45.0f),(float) screenWidth / (float) screenHeight, 0.01f, 100.0f);
 		glm::mat4 view = camera->getViewMatrix();
 
 		// Settea la matriz de vista y projection al shader con solo color
@@ -908,6 +979,25 @@ void applicationLoop() {
 		modelMatrixHeliHeli = glm::translate(modelMatrixHeliHeli, glm::vec3(0.0, 0.0, 0.249548));
 		modelHeliHeli.render(modelMatrixHeliHeli);
 
+		glm::mat4 modelMatrixHeliHeliBack = glm::mat4(modelMatrixHeliChasis);
+		modelMatrixHeliHeliBack = glm::translate(modelMatrixHeliHeliBack, glm::vec3(0.401739, 2.09312, -5.64917));
+		modelMatrixHeliHeliBack = glm::rotate(modelMatrixHeliHeliBack, rotHelHelBack, glm::vec3(1.0, 0.0, 0.0));
+		modelMatrixHeliHeliBack = glm::translate(modelMatrixHeliHeliBack, glm::vec3(-0.401739, -2.09312, 5.64917));
+		modelHeliHeliBack.render(modelMatrixHeliHeliBack);
+
+		// Kakashi
+		glm::mat4 modelMatrixKakashi = glm::mat4(1.0f); // Matriz de identidad
+		modelMatrixKakashi = glm::translate(modelMatrixKakashi, glm::vec3(19.5f, 0.0f, 3.0f)); // Ajuste de posición
+		modelMatrixKakashi = glm::rotate(modelMatrixKakashi, glm::radians(90.0f), glm::vec3(0.0, 1.0, 0.0)); // Rotar para que mire al Lambo
+		modelMatrixKakashi = glm::scale(modelMatrixKakashi, glm::vec3(1.3f, 1.3f, 1.3f)); // Ajuste de escala
+		modelKakashi.render(modelMatrixKakashi);
+
+		// Naruto
+		glm::mat4 modelMatrixNaruto = glm::mat4(1.0f); // Matriz de identidad
+		modelMatrixNaruto = glm::translate(modelMatrixNaruto, glm::vec3(10.0f, 0.0f, 4.5f)); // Ajuste de posición de Naruto
+		modelMatrixNaruto = glm::scale(modelMatrixNaruto, glm::vec3(1.3f, 1.3f, 1.3f)); // Ajuste de escala
+		modelNaruto.render(modelMatrixNaruto);
+
 		// Lambo car
 		glDisable(GL_CULL_FACE);
 		glm::mat4 modelMatrixLamboChasis = glm::mat4(modelMatrixLambo);
@@ -915,9 +1005,9 @@ void applicationLoop() {
 		modelLambo.render(modelMatrixLamboChasis);
 		glActiveTexture(GL_TEXTURE0);
 		glm::mat4 modelMatrixLamboLeftDor = glm::mat4(modelMatrixLamboChasis);
-		modelMatrixLamboLeftDor = glm::translate(modelMatrixLamboLeftDor, glm::vec3(1.08676, 0.707316, 0.982601));
+		modelMatrixLamboLeftDor = glm::translate(modelMatrixLamboLeftDor, glm::vec3(1.083, 0.6992, 0.9831));
 		modelMatrixLamboLeftDor = glm::rotate(modelMatrixLamboLeftDor, glm::radians(dorRotCount), glm::vec3(1.0, 0, 0));
-		modelMatrixLamboLeftDor = glm::translate(modelMatrixLamboLeftDor, glm::vec3(-1.08676, -0.707316, -0.982601));
+		modelMatrixLamboLeftDor = glm::translate(modelMatrixLamboLeftDor, glm::vec3(-1.083, -0.6992, -0.9831));
 		modelLamboLeftDor.render(modelMatrixLamboLeftDor);
 		modelLamboRightDor.render(modelMatrixLamboChasis);
 		modelLamboFrontLeftWheel.render(modelMatrixLamboChasis);
@@ -993,10 +1083,212 @@ void applicationLoop() {
 		skyboxSphere.render();
 		glCullFace(oldCullFaceMode);
 		glDepthFunc(oldDepthFuncMode);
+		
+		if (rotorSpeed > 0.0f) {
+			rotHelHelY += rotorSpeed;  // Rotación de las hélices frontales controlada por la velocidad
+		}
 
-		// Constantes de animaciones
-		rotHelHelY += 0.5;
+		if (rotorBackSpeed > 0.0f) {
+			rotHelHelBack += rotorBackSpeed;  // Rotación de las hélices traseras controlada por la velocidad
+		}
 
+		// ***** Guardado de KeyFrames de Darth Vader ******
+		if(record && modelSelected == 1){
+			matrixDartJoints.push_back(rotDartHead);
+			matrixDartJoints.push_back(rotDartLeftArm);
+			matrixDartJoints.push_back(rotDartLeftHand);
+			matrixDartJoints.push_back(rotDartRightArm);
+			matrixDartJoints.push_back(rotDartRightHand);
+			matrixDartJoints.push_back(rotDartLeftLeg);
+			matrixDartJoints.push_back(rotDartRightLeg);
+
+			if(saveFrame)
+			{
+				saveFrame = false;
+				appendFrame(myfile, matrixDartJoints); 
+			}
+		}
+		else if (keyFramesDartJoints.size() > 0)
+		{
+			//Para reproducir frame
+			interpolationDartJoints = numPasosDartJoints / (float) maxNumPasosDartJoints;
+			numPasosDartJoints++;
+			if(interpolationDartJoints > 1.0)
+			{
+				interpolationDartJoints = 0;
+				numPasosDartJoints = 0;
+				indexFrameDartJoints = indexFrameDartJointsNext;
+				indexFrameDartJointsNext++;
+			}
+			if(indexFrameDartJointsNext > keyFramesDartJoints.size() - 1)
+				indexFrameDartJointsNext = 0;
+			rotDartHead      = interpolate(keyFramesDartJoints, indexFrameDartJoints, indexFrameDartJointsNext, 0, indexFrameDartJoints);	
+			rotDartLeftArm   = interpolate(keyFramesDartJoints, indexFrameDartJoints, indexFrameDartJointsNext, 1, indexFrameDartJoints);
+			rotDartLeftHand  = interpolate(keyFramesDartJoints, indexFrameDartJoints, indexFrameDartJointsNext, 2, indexFrameDartJoints);
+			rotDartRightArm  = interpolate(keyFramesDartJoints, indexFrameDartJoints, indexFrameDartJointsNext, 3, indexFrameDartJoints);
+			rotDartRightHand = interpolate(keyFramesDartJoints, indexFrameDartJoints, indexFrameDartJointsNext, 4, indexFrameDartJoints);
+			rotDartLeftLeg   = interpolate(keyFramesDartJoints, indexFrameDartJoints, indexFrameDartJointsNext, 5, indexFrameDartJoints);
+			rotDartRightLeg  = interpolate(keyFramesDartJoints, indexFrameDartJoints, indexFrameDartJointsNext, 6, indexFrameDartJoints);
+		}
+
+		if(record && modelSelected == 2){
+			matrixDart.push_back(modelMatrixDart);
+			if(saveFrame)
+			{
+				saveFrame = false;
+				appendFrame(myfile, matrixDart); 
+			}
+		}
+		else if (keyFramesDart.size() > 0)
+		{
+			interpolationDart = numPasosDart / (float) maxNumPasosDart;
+			numPasosDart++;
+			if(interpolationDart > 1.0)
+			{
+				numPasosDart = 0;
+				interpolationDart = 0;
+				indexFrameDart = indexFrameDartNext;
+				indexFrameDartNext++;
+			}
+			if(indexFrameDartNext > keyFramesDart.size() - 1)
+				indexFrameDartNext = 0;
+			modelMatrixDart = interpolate(keyFramesDart, indexFrameDart, indexFrameDartNext, 0, interpolationDart);	
+		}
+
+		// ***** Maquina de estados del eclipse *****
+		switch (state)
+		{
+		case 0:
+			if(numberAdvance == 0)
+				maxAdvance = 64.0; 
+			else if(numberAdvance == 1)
+				maxAdvance = 50.0; 
+			else if(numberAdvance == 2)
+				maxAdvance = 45.0; 
+			else if(numberAdvance == 3)
+				maxAdvance = 50.0; 
+			else if(numberAdvance == 4)
+				maxAdvance = 45.0; 
+			state = 1;
+			break;
+		
+		case 1:
+			modelMatrixEclipse = glm::translate(modelMatrixEclipse, glm::vec3(0, 0, avance));
+			advanceCount += avance;
+			rotWheelsX += 0.05;
+			rotWheelsY -= 0.02;
+
+			if(rotWheelsY <=0)
+				rotWheelsY = 0;
+
+			if(advanceCount > maxAdvance)
+			{
+				advanceCount = 0;
+				state = 2;
+				numberAdvance++;
+			}
+			break;
+		case 2:
+			modelMatrixEclipse = glm::translate(modelMatrixEclipse, glm::vec3(0, 0, 0.025));
+			modelMatrixEclipse = glm::rotate(modelMatrixEclipse, glm::radians(giroEclipse), glm::vec3(0, 1, 0));
+			rotCount += giroEclipse;
+			rotWheelsY += 0.02;
+			if (rotWheelsY >= 0.25)
+				rotWheelsY = 0.25;
+			if(rotCount >= 90.0f)
+			{
+				rotCount = 0;
+				state = 0;
+				if(numberAdvance > 4)
+					numberAdvance = 1;
+			}
+			break;
+		default:
+			break;
+		}
+
+		switch (stateDoor)
+		{
+		case 0:
+			dorRotCount += 0.5;
+			if(dorRotCount > 75)
+				stateDoor = 1;
+			break;
+		
+		case 1:
+			dorRotCount -= 0.5;
+			if(dorRotCount < 0)
+				stateDoor = 0;
+			break;
+		
+		default:
+			break;
+		}
+
+		// Máquina de estados para el helicóptero
+        switch (heliState) {
+            case INICIAL:
+				// El helicóptero está esperando
+				if (glfwGetKey(window, GLFW_KEY_U) == GLFW_PRESS) {
+					heliState = ACERCAMIENTO;
+				}
+				break;
+
+			case ACERCAMIENTO:
+				// El helicóptero se mueve hacia la zona de aterrizaje
+				if (modelMatrixHeli[3].z <= coordenadaZAterrizaje) {
+					heliState = ATERRIZAJE;
+				} else {
+					modelMatrixHeli = glm::translate(modelMatrixHeli, glm::vec3(0.0f, 0.0f, -heliSpeed)); // Acercamiento
+					// Mantener la rotación rápida de las hélices mientras el helicóptero se mueve
+					rotHelHelY += rotorSpeed;
+					rotHelHelBack += rotorBackSpeed;
+				}
+				break;
+
+			case ATERRIZAJE:
+				// El helicóptero baja hasta la zona de aterrizaje
+				if (heliHeight > 0.05f) {
+					heliHeight -= 0.02f; // Descender el helicóptero
+					modelMatrixHeli = glm::translate(modelMatrixHeli, glm::vec3(0.0f, -0.02f, 0.0f));
+					// Continuar la rotación rápida de las hélices mientras el helicóptero aterriza
+					rotHelHelY += rotorSpeed;
+					rotHelHelBack += rotorBackSpeed;
+				} else {
+					heliHeight = 0.0f;
+					heliState = DETENER_ROTORES;
+				}
+				break;
+
+			case DETENER_ROTORES:
+				// Desacelerar las hélices de manera exponencial
+				if (rotorSpeed > 0.0f || rotorBackSpeed > 0.0f) {
+					// Reducir la velocidad de las hélices usando una desaceleración exponencial
+					rotorSpeed *= 0.98f;  // Reduce la velocidad de las hélices principales al 98% de la actual
+					rotorBackSpeed *= 0.98f;  // Reduce la velocidad de las hélices traseras al 98% de la actual
+
+					// Asegurarse de que ninguna velocidad sea menor que un valor mínimo para detener completamente
+					if (rotorSpeed < 0.01f) {
+						rotorSpeed = 0.0f;  // Detener completamente cuando es muy baja
+					}
+					if (rotorBackSpeed < 0.01f) {
+						rotorBackSpeed = 0.0f;  // Detener completamente cuando es muy baja
+					}
+
+					/* std::cout << "Velocidad de las hélices principales: " << rotorSpeed << std::endl;
+        			std::cout << "Velocidad de las hélices traseras: " << rotorBackSpeed << std::endl; */
+
+					// Actualizar las rotaciones solo si las velocidades son mayores que cero
+					if (rotorSpeed > 0.0f) {
+						rotHelHelY += rotorSpeed;  // Rotación de las hélices delanteras según su velocidad
+					}
+
+					if (rotorBackSpeed > 0.0f) {
+						rotHelHelBack += rotorBackSpeed;  // Rotación de las hélices traseras según su velocidad
+					}
+				}
+				break;
+        }
 		glfwSwapBuffers(window);
 	}
 }
