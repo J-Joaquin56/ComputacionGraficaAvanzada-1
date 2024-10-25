@@ -90,6 +90,12 @@ Model modelBuzzLeftArm;
 Model modelBuzzLeftForeArm;
 Model modelBuzzLeftHand;
 
+// Modelos animados
+Model modelKakashiDescanso;
+Model modelKakashiCorriendo;
+
+bool kakashiIsRunning = false;
+
 GLuint textureCespedID, textureWallID, textureWindowID, textureHighwayID, textureLandingPadID;
 GLuint skyboxTextureID;
 
@@ -101,12 +107,19 @@ GL_TEXTURE_CUBE_MAP_NEGATIVE_Y,
 GL_TEXTURE_CUBE_MAP_POSITIVE_Z,
 GL_TEXTURE_CUBE_MAP_NEGATIVE_Z };
 
-std::string fileNames[6] = { "../Textures/mp_bloodvalley/blood-valley_ft.tga",
+std::string fileNames[6] = {/*  "../Textures/mp_bloodvalley/blood-valley_ft.tga",
 		"../Textures/mp_bloodvalley/blood-valley_bk.tga",
 		"../Textures/mp_bloodvalley/blood-valley_up.tga",
 		"../Textures/mp_bloodvalley/blood-valley_dn.tga",
 		"../Textures/mp_bloodvalley/blood-valley_rt.tga",
-		"../Textures/mp_bloodvalley/blood-valley_lf.tga" };
+		"../Textures/mp_bloodvalley/blood-valley_lf.tga"  */
+		"../Textures/skybox/skyrender0001.tga",
+		"../Textures/skybox/skyrender0004.tga",
+		"../Textures/skybox/skyrender0003.tga",
+		"../Textures/skybox/skyrender0006.tga",
+		"../Textures/skybox/skyrender0005.tga",
+		"../Textures/skybox/skyrender0002.tga"
+		};
 
 bool exitApp = false;
 int lastMousePosX, offsetX = 0;
@@ -120,6 +133,7 @@ glm::mat4 modelMatrixLambo = glm::mat4(1.0);
 glm::mat4 modelMatrixAircraft = glm::mat4(1.0);
 glm::mat4 modelMatrixDart = glm::mat4(1.0f);
 glm::mat4 modelMatrixBuzz = glm::mat4(1.0f);
+glm::mat4 modelMatrixKakashi = glm::mat4(1.0f);
 
 float rotDartHead = 0.0, rotDartLeftArm = 0.0, rotDartLeftHand = 0.0, rotDartRightArm = 0.0, rotDartRightHand = 0.0, rotDartLeftLeg = 0.0, rotDartRightLeg = 0.0;
 float rotBuzzHead = 0.0, rotBuzzLeftarm = 0.0, rotBuzzLeftForeArm = 0.0, rotBuzzLeftHand = 0.0;
@@ -222,8 +236,8 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 	glfwSetKeyCallback(window, keyCallback);
 	glfwSetCursorPosCallback(window, mouseCallback);
 	glfwSetMouseButtonCallback(window, mouseButtonCallback);
-	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
-
+	//glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	// Init glew
 	glewExperimental = GL_TRUE;
 	GLenum err = glewInit();
@@ -331,6 +345,13 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 	modelBuzzLeftForeArm.setShader(&shaderMulLighting);
 	modelBuzzLeftHand.loadModel("../models/buzz/buzzlightyLeftHand.obj");
 	modelBuzzLeftHand.setShader(&shaderMulLighting);
+
+	// Kakashi animado
+	modelKakashiDescanso.loadModel("../models/kakashi/KakashiAnimado3.fbx");
+	modelKakashiDescanso.setShader(&shaderMulLighting);
+
+	modelKakashiCorriendo.loadModel("../models/kakashi/Kakashi_Corriendo.fbx");
+	modelKakashiCorriendo.setShader(&shaderMulLighting);
 
 	camera->setPosition(glm::vec3(0.0, 3.0, 4.0));
 	
@@ -491,7 +512,6 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 	else 
 		std::cout << "Fallo la carga de textura" << std::endl;
 	textureLandingPad.freeImage(); // Liberamos memoria
-
 }
 
 void destroy() {
@@ -543,6 +563,8 @@ void destroy() {
 	modelBuzzLeftForeArm.destroy();
 	modelBuzzLeftHand.destroy();
 	modelBuzzTorso.destroy();
+	modelKakashiDescanso.destroy();
+	modelKakashiCorriendo.destroy();
 
 	// Textures Delete
 	glBindTexture(GL_TEXTURE_2D, 0);
@@ -575,10 +597,19 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action,
 }
 
 void mouseCallback(GLFWwindow *window, double xpos, double ypos) {
-	offsetX = xpos - lastMousePosX;
-	offsetY = ypos - lastMousePosY;
-	lastMousePosX = xpos;
-	lastMousePosY = ypos;
+	static bool firstMouse = true;
+    if (firstMouse) {
+        lastMousePosX = xpos;
+        lastMousePosY = ypos;
+        firstMouse = false;
+    }
+
+    offsetX = xpos - lastMousePosX;
+    offsetY = ypos - lastMousePosY;  // Invertir para que suba con movimiento hacia arriba
+    lastMousePosX = xpos;
+    lastMousePosY = ypos;
+
+    camera->mouseMoveCamera(offsetX, offsetY, deltaTime);
 }
 
 void mouseButtonCallback(GLFWwindow *window, int button, int state, int mod) {
@@ -600,21 +631,26 @@ void mouseButtonCallback(GLFWwindow *window, int button, int state, int mod) {
 
 bool processInput(bool continueApplication) {
 	if (exitApp || glfwWindowShouldClose(window) != 0) {
-		return false;
-	}
+        return false;
+    }
 
-	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-		camera->moveFrontCamera(true, deltaTime);
-	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-		camera->moveFrontCamera(false, deltaTime);
-	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-		camera->moveRightCamera(false, deltaTime);
-	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-		camera->moveRightCamera(true, deltaTime);
-	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
-		camera->mouseMoveCamera(offsetX, offsetY, deltaTime);
-	offsetX = 0;
-	offsetY = 0;
+    // Factor de velocidad para acelerar el movimiento de la cámara
+    float speedMultiplier = 2.0f; // Cambia este valor para aumentar la velocidad
+
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+        camera->moveFrontCamera(true, deltaTime * speedMultiplier);
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        camera->moveFrontCamera(false, deltaTime * speedMultiplier);
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+        camera->moveRightCamera(false, deltaTime * speedMultiplier);
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+        camera->moveRightCamera(true, deltaTime * speedMultiplier);
+
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
+        camera->mouseMoveCamera(offsetX, offsetY, deltaTime);
+
+    offsetX = 0;
+    offsetY = 0;
 
 	// Seleccionar modelo
 	if (enableCountSelected && glfwGetKey(window, GLFW_KEY_TAB) == GLFW_PRESS){
@@ -748,13 +784,19 @@ bool processInput(bool continueApplication) {
 	else if (modelSelected == 2 && glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
 		modelMatrixBuzz = glm::translate(modelMatrixBuzz, glm::vec3(0.0, 0.0, -0.02));
 
+	if(glfwGetKey(window,GLFW_KEY_UP)==GLFW_PRESS){
+		kakashiIsRunning = true;
+	}
+	else if(glfwGetKey(window,GLFW_KEY_UP)==GLFW_RELEASE){
+		kakashiIsRunning = false;
+	}
+
 	glfwPollEvents();
 	return continueApplication;
 }
 
 void applicationLoop() {
 	bool psi = true;
-
 	modelMatrixEclipse = glm::translate(modelMatrixEclipse, glm::vec3(27.5, 0, 30.0));
 	modelMatrixEclipse = glm::rotate(modelMatrixEclipse, glm::radians(180.0f), glm::vec3(0, 1, 0));
 	int state = 0;
@@ -776,6 +818,8 @@ void applicationLoop() {
 	modelMatrixDart = glm::translate(modelMatrixDart, glm::vec3(3.0, 0.0, 20.0));
 
 	modelMatrixBuzz = glm::translate(modelMatrixBuzz, glm::vec3(15.0, 0.0, -10.0));
+
+	modelMatrixKakashi = glm::translate(modelMatrixKakashi, glm::vec3(20.0, 0.0, -1.0));
 
 	// Variables to interpolation key frames
 	fileName = "../animaciones/animation_dart_joints.txt";
@@ -1111,6 +1155,19 @@ void applicationLoop() {
 		modelMatrixLeftHand = glm::rotate(modelMatrixLeftHand, glm::radians(-45.0f), glm::vec3(0, 1, 0));
 		modelMatrixLeftHand = glm::translate(modelMatrixLeftHand, glm::vec3(-0.416066, -0.587046, -0.076258));
 		modelBuzzLeftHand.render(modelMatrixLeftHand);
+
+		// Renderizar el cuerpo de Kakashi
+		glm::mat4 modelMatrixKakashiBody = glm::mat4(modelMatrixKakashi);
+		modelMatrixKakashiBody = glm::scale(modelMatrixKakashiBody, glm::vec3(0.007f, 0.007f, 0.007f));
+		modelMatrixKakashiBody = glm::translate(modelMatrixKakashiBody, glm::vec3(-60.0, 0.0, 40.0));
+		if(kakashiIsRunning){
+			modelKakashiCorriendo.render(modelMatrixKakashiBody);
+		}
+		else{
+			modelKakashiDescanso.render(modelMatrixKakashiBody);
+		}
+		
+
 
 		/*******************************************
 		 * Skybox
