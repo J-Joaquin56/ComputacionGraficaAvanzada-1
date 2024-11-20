@@ -210,5 +210,59 @@ bool testOBBOBB(AbstractModel::OBB a, AbstractModel::OBB b){
 	return true;
 }
 
+bool testSLABPLane(float p, float v, float min, float max, 
+	float& tmin, float& tmax){
+	if(fabs(v) <= 0.01){ // El rayo es paralelo en el eje de v
+		return p >= min && p <=max;
+	}
+	float ood = 1 / v;
+	float t1 = (min - p) * ood;
+	float t2 = (max - p) * ood;
+	if(t1 > t2){
+		float taux = t1;
+		t1 = t2;
+		t2 = taux;
+	}
+	if(t1 > tmin)
+		tmin = t1;
+	if(t2 < tmax)
+		tmax = t2;
+	if(tmin > tmax)
+		return false;
+	return true;
+}
+
+bool intersectRayAABB(glm::vec3 o, glm::vec3 t, AbstractModel::AABB collider){
+	float tmin = -FLT_MAX;
+	float tmax = FLT_MAX;
+	glm::vec3 v = glm::normalize(t- o);
+	if(!testSLABPLane(o.x, v.x, collider.mins.x, collider.maxs.x, tmin, tmax))
+		return false;
+	if(!testSLABPLane(o.y, v.y, collider.mins.y, collider.maxs.y, tmin, tmax))
+		return false;
+	if(!testSLABPLane(o.z, v.z, collider.mins.z, collider.maxs.z, tmin, tmax))
+		return false;
+	// Si llega hasta aca puede que haya collision.
+	if(tmin >= 0 && tmin <= glm::length(t -o))
+		return true;
+	return false;
+}
+
+bool testRayOBB(glm::vec3 o, glm::vec3 t, AbstractModel::OBB collider){
+	// 1.- Encontrar la transformación inversa del collider
+	glm::quat qInv = glm::inverse(collider.u);
+	// 2.- Transformar con la inversa los puntos del rayo
+	glm::vec3 oTmp = qInv * o;
+	glm::vec3 tTmp = qInv * t;
+	// 3.- Transformar con la inversa el centro de la caja
+	glm::vec3 cAABB = qInv * collider.c;
+	// 4.- Crear el model del AABB
+	AbstractModel::AABB aabb;
+	aabb.mins = cAABB - collider.e;
+	aabb.maxs = cAABB + collider.e;
+	// 5.- Prueba Rayo vs AABB
+	return intersectRayAABB(oTmp, tTmp, aabb);
+}
+
 
 #endif /* COLISIONES_H_ */

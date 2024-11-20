@@ -23,6 +23,23 @@ void ThirdPersonCamera::mouseMoveCamera(float xoffset, float yoffset, float dt){
         pitch = M_PI / 2 - 0.01;
     if(pitch < -M_PI / 2)
         pitch = -M_PI / 2 + 0.01;
+
+    // Limita el ángulo de inclinación para no ver debajo del mapa
+    float minPitch = glm::radians(10.0f);  // Mínimo ángulo de inclinación
+    float maxPitch = glm::radians(60.0f);  // Máximo ángulo de inclinación
+
+    if(pitch > maxPitch)
+        pitch = maxPitch;
+    if(pitch < minPitch)
+        pitch = minPitch;
+
+    // Limita el ángulo alrededor del objetivo
+    float maxAngleAroundTarget = glm::radians(120.0f); // Ajusta según lo necesites
+    if(angleAroundTarget > maxAngleAroundTarget)
+        angleAroundTarget = maxAngleAroundTarget;
+    if(angleAroundTarget < -maxAngleAroundTarget)
+        angleAroundTarget = -maxAngleAroundTarget;
+
     updateCamera();
 }
 
@@ -58,4 +75,18 @@ void ThirdPersonCamera::updateCamera(){
 
     this->right = glm::normalize(glm::cross(this->front, this->worldUp));
     this->up = glm::normalize(glm::cross(this->right, this->front));
+
+    // Calcula el vector "frente" de la cámara
+    if (distanceFromTarget < 0)
+        front = glm::normalize(position - cameraTarget);
+    else
+        front = glm::normalize(cameraTarget - position);
+
+    // Calcula los vectores "derecha" y "arriba"
+    this->right = glm::normalize(glm::cross(this->front, this->worldUp));
+    this->up = glm::normalize(glm::cross(this->right, this->front));
+
+    // **Desplaza la cámara ligeramente a la derecha**
+    float horizontalOffset = 1.0f; // Ajusta este valor según lo necesites
+    position += this->right * horizontalOffset;
 }

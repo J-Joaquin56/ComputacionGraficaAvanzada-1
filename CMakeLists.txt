@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.0)
+cmake_minimum_required(VERSION 3.12)
 project(CGA VERSION 0.1.0 LANGUAGES C CXX)
 
 add_subdirectory(CGALib)
@@ -16,3 +16,4 @@ add_subdirectory(10-Fog)
 add_subdirectory(11-OpenAL)
 add_subdirectory(12-ShadowMapping)
 add_subdirectory(13-Particulas)
+add_subdirectory(14-Proyecto)
